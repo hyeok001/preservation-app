@@ -1,0 +1,1412 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>보전 관리 시스템</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, minmax(0, 1fr));
+            border-top: 1px solid #e2e8f0;
+            border-left: 1px solid #e2e8f0;
+        }
+        .calendar-cell {
+            min-height: 120px;
+            border-right: 1px solid #e2e8f0;
+            border-bottom: 1px solid #e2e8f0;
+            background-color: #ffffff;
+        }
+        .calendar-header-cell {
+            text-align: center;
+            padding: 0.5rem;
+            font-weight: 600;
+            border-right: 1px solid #e2e8f0;
+            border-bottom: 1px solid #e2e8f0;
+            background-color: #f8fafc;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 h-screen w-full overflow-hidden flex text-slate-800">
+
+    <!-- Main Content Wrapper -->
+    <div class="flex-1 flex flex-col h-full overflow-hidden relative">
+        
+        <!-- App Bar with Top Navigation Tabs -->
+        <header class="h-16 bg-white shadow-sm flex items-center justify-between px-4 md:px-6 z-10 shrink-0 border-b border-slate-200">
+            <div class="flex items-center space-x-2">
+                <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                <span class="font-bold text-lg text-slate-800 hidden sm:inline">보전파트</span>
+            </div>
+
+            <!-- Top Switcher Buttons -->
+            <div class="bg-slate-100 p-1 rounded-xl flex items-center space-x-1 border border-slate-200">
+                <button onclick="switchTab('calendar')" id="top-nav-calendar" class="flex items-center px-4 py-2 rounded-lg bg-blue-600 text-white font-bold shadow-sm transition-all text-sm">
+                    <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                    월간 계획
+                </button>
+                <button onclick="switchTab('inventory')" id="top-nav-inventory" class="flex items-center px-4 py-2 rounded-lg text-slate-600 hover:bg-slate-200 font-medium transition-all text-sm">
+                    <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg>
+                    재고 관리
+                </button>
+            </div>
+
+            <div class="flex items-center space-x-2">
+                <span id="sync-status" class="text-xs px-2 py-1 bg-emerald-100 text-emerald-700 rounded-lg font-medium hidden sm:inline">클라우드 동기화 중</span>
+                <div class="w-8 h-8 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-sm">
+                    M
+                </div>
+            </div>
+        </header>
+
+        <!-- Scrollable Content Area -->
+        <main class="flex-1 overflow-y-auto p-3 md:p-5 pb-20 md:pb-6 relative">
+            
+            <!-- Tab 1: Calendar -->
+            <div id="tab-calendar" class="block space-y-4 max-w-7xl mx-auto">
+                
+                <!-- 1. 금일 특이사항 -->
+                <div class="bg-amber-50/80 rounded-2xl p-4 border border-amber-200/90 shadow-sm space-y-3">
+                    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                        <div class="flex items-center space-x-2 flex-wrap gap-y-1">
+                            <span class="text-base">🚨</span>
+                            <h3 class="font-bold text-slate-800 text-sm md:text-base">금일 특이사항</h3>
+                        </div>
+                        <button onclick="openNoticeModal()" class="bg-amber-600 hover:bg-amber-700 text-white px-3.5 py-1.5 rounded-xl font-bold text-xs shadow-sm transition-all flex items-center shrink-0">
+                            + 특이사항 등록
+                        </button>
+                    </div>
+
+                    <!-- 공지 카드 리스트 -->
+                    <div id="notice-list" class="space-y-3">
+                        <!-- JS Injected Notice Cards -->
+                    </div>
+                </div>
+
+                <!-- 2. 일별 등록 일정 -->
+                <div class="bg-slate-100/80 rounded-2xl p-4 border border-slate-200 shadow-sm space-y-3">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div class="flex items-center space-x-2">
+                            <button onclick="toggleDailyCollapse()" class="text-blue-600 focus:outline-none p-1 hover:bg-slate-200 rounded-lg transition-colors">
+                                <svg id="daily-arrow" class="w-4 h-4 transform transition-transform duration-200" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"></path></svg>
+                            </button>
+                            <span class="text-base">📅</span>
+                            <h3 class="font-bold text-slate-800 text-sm md:text-base">일별 등록 일정</h3>
+                            <!-- 날짜 선택기 -->
+                            <input type="date" id="daily-date-select" onchange="onDailyDateChange(this.value)" class="bg-white border border-slate-300 rounded-lg px-2.5 py-1 text-xs font-bold text-blue-700 focus:ring-2 focus:ring-blue-500 outline-none">
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <button onclick="openScheduleModal()" class="bg-blue-600 hover:bg-blue-700 text-white px-3.5 py-1.5 rounded-xl font-bold text-xs shadow-sm transition-all flex items-center shrink-0">
+                                + 달력 일정 등록
+                            </button>
+                        </div>
+                    </div>
+                    <div id="daily-schedule-body" class="pt-1 transition-all duration-200">
+                        <!-- JS Injected -->
+                    </div>
+                </div>
+
+                <!-- Calendar Controls -->
+                <div class="flex flex-col sm:flex-row justify-between items-center bg-white p-3 sm:p-4 rounded-2xl shadow-sm border border-slate-200">
+                    <div class="flex items-center space-x-3 mb-3 sm:mb-0">
+                        <button onclick="changeMonth(-1)" class="p-2 rounded-lg hover:bg-slate-100 transition-colors border border-slate-200">
+                            <svg class="w-5 h-5 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
+                        </button>
+                        <h2 id="calendar-title" class="text-xl sm:text-2xl font-bold text-slate-800 w-36 text-center">2026년 11월</h2>
+                        <button onclick="changeMonth(1)" class="p-2 rounded-lg hover:bg-slate-100 transition-colors border border-slate-200">
+                            <svg class="w-5 h-5 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+                        </button>
+                    </div>
+                    <div class="flex space-x-2 w-full sm:w-auto">
+                        <button onclick="exportCalendarToExcel()" class="flex-1 sm:flex-none bg-teal-600 hover:bg-teal-700 text-white px-3.5 py-2.5 rounded-xl shadow font-medium transition-all flex items-center justify-center text-xs sm:text-sm">
+                            <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                            📅 달력 양식 내보내기
+                        </button>
+                        <button onclick="openScheduleModal()" class="flex-1 sm:flex-none bg-blue-600 hover:bg-blue-700 text-white px-3.5 py-2.5 rounded-xl shadow font-medium transition-all flex items-center justify-center text-xs sm:text-sm">
+                            <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                            일정 추가
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Calendar View -->
+                <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div class="calendar-grid bg-slate-50 border-b border-slate-200">
+                        <div class="calendar-header-cell text-red-500">일요일</div>
+                        <div class="calendar-header-cell">월요일</div>
+                        <div class="calendar-header-cell">화요일</div>
+                        <div class="calendar-header-cell">수요일</div>
+                        <div class="calendar-header-cell">목요일</div>
+                        <div class="calendar-header-cell">금요일</div>
+                        <div class="calendar-header-cell text-blue-500">토요일</div>
+                    </div>
+                    <div id="calendar-body" class="calendar-grid">
+                        <!-- JS injected -->
+                    </div>
+                </div>
+
+                <!-- Maintenance Memos -->
+                <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
+                    <h3 class="text-lg font-bold text-slate-800 mb-3 flex items-center">
+                        <svg class="w-5 h-5 mr-2 text-yellow-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path></svg>
+                        중요 메모 및 주기 확인
+                    </h3>
+                    <ul id="memo-list" class="space-y-2 text-sm text-slate-700 columns-1 md:columns-2 gap-4">
+                        <!-- JS injected -->
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Tab 2: Inventory -->
+            <div id="tab-inventory" class="hidden space-y-6 max-w-7xl mx-auto">
+                
+                <!-- Inventory Controls & Month Selector -->
+                <div class="flex flex-col sm:flex-row justify-between items-center bg-white p-4 rounded-2xl shadow-sm border border-slate-100">
+                    <div class="flex items-center space-x-4 mb-4 sm:mb-0">
+                        <button onclick="changeInvMonth(-1)" class="p-2 rounded-lg hover:bg-slate-100 transition-colors">
+                            <svg class="w-5 h-5 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
+                        </button>
+                        <h2 id="inv-calendar-title" class="text-xl font-bold text-slate-800 w-40 text-center">2026년 10월 재고</h2>
+                        <button onclick="changeInvMonth(1)" class="p-2 rounded-lg hover:bg-slate-100 transition-colors">
+                            <svg class="w-5 h-5 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+                        </button>
+                    </div>
+                    <div class="flex space-x-3 w-full sm:w-auto">
+                        <button onclick="exportToExcel()" class="flex-1 sm:flex-none bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-xl shadow font-medium transition-all flex items-center justify-center">
+                            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                            엑셀 다운로드
+                        </button>
+                        <button onclick="openInvModal()" class="flex-1 sm:flex-none bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl shadow font-medium transition-all flex items-center justify-center">
+                            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                            품목 추가
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Sub-tabs -->
+                <div class="flex border-b border-slate-200">
+                    <button onclick="switchInvSubTab('maint')" id="subtab-maint" class="px-6 py-3 border-b-2 border-blue-600 text-blue-600 font-bold transition-colors">보전 자재</button>
+                    <button onclick="switchInvSubTab('safety')" id="subtab-safety" class="px-6 py-3 border-b-2 border-transparent text-slate-500 hover:text-slate-800 font-medium transition-colors">방청 보호구</button>
+                </div>
+
+                <!-- Table Container -->
+                <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm text-left">
+                            <thead class="bg-slate-800 text-slate-100 uppercase font-medium">
+                                <tr>
+                                    <th class="px-4 py-3 text-center rounded-tl-xl">No.</th>
+                                    <th class="px-4 py-3">품목명</th>
+                                    <th class="px-4 py-3">규격</th>
+                                    <th class="px-4 py-3 text-center">단위</th>
+                                    <th class="px-4 py-3 text-right">적정재고</th>
+                                    <th class="px-4 py-3 text-right">전월 이월</th>
+                                    <th class="px-4 py-3 text-right">입고일 및 수량</th>
+                                    <th class="px-4 py-3 text-right">사용량</th>
+                                    <th class="px-4 py-3 text-right">현재고</th>
+                                    <th class="px-4 py-3 text-center rounded-tr-xl">상태/관리</th>
+                                </tr>
+                            </thead>
+                            <tbody id="inventory-tbody" class="divide-y divide-slate-100">
+                                <!-- JS Injected -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <!-- Mobile Bottom Navigation -->
+    <nav class="md:hidden fixed bottom-0 left-0 w-full bg-white border-t border-slate-200 flex justify-around items-center h-16 pb-safe z-40">
+        <button onclick="switchTab('calendar')" id="mobile-nav-calendar" class="flex flex-col items-center justify-center w-full h-full text-blue-600">
+            <svg class="w-6 h-6 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+            <span class="text-[10px] font-medium">월간 계획</span>
+        </button>
+        <button onclick="switchTab('inventory')" id="mobile-nav-inventory" class="flex flex-col items-center justify-center w-full h-full text-slate-400 hover:text-slate-800">
+            <svg class="w-6 h-6 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg>
+            <span class="text-[10px] font-medium">재고 관리</span>
+        </button>
+    </nav>
+
+    <!-- Modal: Schedule Form -->
+    <div id="modal-schedule" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden z-50 flex-col items-center justify-end md:justify-center p-4">
+        <div class="bg-white rounded-t-2xl md:rounded-2xl w-full max-w-md shadow-2xl overflow-hidden transform transition-all translate-y-full md:translate-y-0 duration-300" id="modal-schedule-content">
+            <div class="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+                <h3 class="text-lg font-bold text-slate-800" id="modal-title">일정 추가/수정</h3>
+                <button onclick="closeModal('schedule')" class="text-slate-400 hover:text-slate-600 p-1">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+            <div class="p-6 space-y-4">
+                <input type="hidden" id="sch-id">
+                <div>
+                    <label class="block text-sm font-semibold text-slate-700 mb-1">작업/일정명 <span class="text-red-500">*</span></label>
+                    <input type="text" id="sch-title" class="w-full border border-slate-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all" placeholder="예: 컨베이어 텐션 점검">
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-1">시작일 <span class="text-red-500">*</span></label>
+                        <input type="date" id="sch-start" class="w-full border border-slate-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-blue-500 outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-1">종료일 <span class="text-red-500">*</span></label>
+                        <input type="date" id="sch-end" class="w-full border border-slate-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-blue-500 outline-none">
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-1">색상 구분</label>
+                        <select id="sch-color" class="w-full border border-slate-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-blue-500 outline-none appearance-none bg-white">
+                            <option value="bg-blue-100 text-blue-800 border-blue-300">파랑 (일반점검)</option>
+                            <option value="bg-yellow-100 text-yellow-800 border-yellow-300">노랑 (기간/주의)</option>
+                            <option value="bg-red-100 text-red-800 border-red-300">빨강 (중요/교체)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-1">작업자</label>
+                        <input type="text" id="sch-worker" class="w-full border border-slate-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-blue-500 outline-none" placeholder="이름 입력">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-slate-700 mb-1">상세 메모</label>
+                    <textarea id="sch-memo" rows="2" class="w-full border border-slate-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-blue-500 outline-none resize-none" placeholder="작업 관련 구체적 수량이나 비고 입력..."></textarea>
+                </div>
+                <div class="pt-2 flex justify-between items-center">
+                    <button id="btn-sch-complete" onclick="toggleScheduleComplete()" class="flex-1 mr-2 py-2.5 border-2 border-emerald-500 text-emerald-600 font-bold rounded-xl hover:bg-emerald-50 transition-colors flex justify-center items-center">
+                        <svg class="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                        작업 완료 처리
+                    </button>
+                    <div class="flex space-x-2">
+                        <button id="btn-sch-delete" onclick="deleteSchedule()" class="hidden px-4 py-2.5 text-red-600 bg-red-50 hover:bg-red-100 rounded-xl font-medium transition-colors">삭제</button>
+                        <button onclick="saveSchedule()" class="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium shadow transition-colors">저장</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Inventory Form -->
+    <div id="modal-inventory" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden z-50 flex-col items-center justify-end md:justify-center p-4">
+        <div class="bg-white rounded-t-2xl md:rounded-2xl w-full max-w-md shadow-2xl overflow-hidden transform transition-all translate-y-full md:translate-y-0 duration-300" id="modal-inv-content">
+            <div class="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+                <h3 class="text-lg font-bold text-slate-800" id="inv-modal-title">재고 품목 추가/수정</h3>
+                <button onclick="closeModal('inventory')" class="text-slate-400 hover:text-slate-600 p-1">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+            <div class="p-6 space-y-4">
+                <input type="hidden" id="inv-id">
+                <div>
+                    <label class="block text-sm font-semibold text-slate-700 mb-1">품목명 <span class="text-red-500">*</span></label>
+                    <input type="text" id="inv-name" class="w-full border border-slate-300 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none" placeholder="예: 프리필터">
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-1">규격</label>
+                        <input type="text" id="inv-spec" class="w-full border border-slate-300 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none" placeholder="예: 69ea">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-1">단위</label>
+                        <input type="text" id="inv-unit" class="w-full border border-slate-300 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none" placeholder="EA, 통, 롤 등">
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-1">적정재고</label>
+                        <input type="number" id="inv-proper" class="w-full border border-slate-300 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none" value="0">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-1">전월 이월</label>
+                        <input type="number" id="inv-carry" class="w-full border border-slate-300 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none" value="0">
+                    </div>
+                </div>
+                <div class="grid grid-cols-3 gap-3">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 mb-1">입고일</label>
+                        <input type="date" id="inv-indate" class="w-full border border-slate-300 rounded-xl px-2 py-2 text-xs focus:ring-2 focus:ring-blue-500 outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 mb-1">입고 수량</label>
+                        <input type="number" id="inv-in" class="w-full border border-slate-300 rounded-xl px-3 py-2 text-xs focus:ring-2 focus:ring-blue-500 outline-none" value="0">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 mb-1">사용량</label>
+                        <input type="number" id="inv-out" class="w-full border border-slate-300 rounded-xl px-3 py-2 text-xs focus:ring-2 focus:ring-blue-500 outline-none" value="0">
+                    </div>
+                </div>
+                <div class="pt-4 flex justify-between items-center border-t border-slate-100">
+                    <button id="btn-inv-delete" onclick="deleteInventory()" class="hidden px-4 py-2 text-red-600 bg-red-50 hover:bg-red-100 rounded-xl font-medium transition-colors text-sm">삭제</button>
+                    <div class="flex space-x-2 ml-auto">
+                        <button onclick="closeModal('inventory')" class="px-4 py-2 text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl font-medium transition-colors text-sm">취소</button>
+                        <button onclick="saveInventory()" class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium shadow transition-colors text-sm">저장</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Notice Form -->
+    <div id="modal-notice" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden z-50 flex-col items-center justify-end md:justify-center p-4">
+        <div class="bg-white rounded-t-2xl md:rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden transform transition-all translate-y-full md:translate-y-0 duration-300" id="modal-notice-content">
+            <div class="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-amber-50">
+                <h3 class="text-lg font-bold text-slate-800" id="notice-modal-title">금일 특이사항 등록</h3>
+                <button onclick="closeModal('notice')" class="text-slate-400 hover:text-slate-600 p-1">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+            <div class="p-6 space-y-4">
+                <input type="hidden" id="notice-id">
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-1">구분 / 작성자</label>
+                        <input type="text" id="notice-scope" class="w-full border border-slate-300 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-amber-500 outline-none" placeholder="구분 / 작성자 입력">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-1">태그</label>
+                        <input type="text" id="notice-tag" class="w-full border border-slate-300 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-amber-500 outline-none" placeholder="예: 상시, 긴급 등">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-slate-700 mb-1">공지 제목 <span class="text-red-500">*</span></label>
+                    <input type="text" id="notice-title" class="w-full border border-slate-300 rounded-xl px-4 py-2 text-sm font-bold focus:ring-2 focus:ring-amber-500 outline-none" placeholder="공지 제목 입력">
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-slate-700 mb-1">상세 내용</label>
+                    <textarea id="notice-content" rows="3" class="w-full border border-slate-300 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-amber-500 outline-none resize-none" placeholder="세부 안내 및 접속 조치 내용 작성..."></textarea>
+                </div>
+                <div class="pt-4 flex justify-end space-x-3 border-t border-slate-100">
+                    <button id="btn-notice-delete" onclick="deleteNotice()" class="hidden px-4 py-2 text-red-600 bg-red-50 hover:bg-red-100 rounded-xl font-medium transition-colors text-sm">삭제</button>
+                    <button onclick="closeModal('notice')" class="px-4 py-2 text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl font-medium transition-colors text-sm">취소</button>
+                    <button onclick="saveNotice()" class="px-6 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl font-medium shadow transition-colors text-sm">저장</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Firebase Scripts & Logic -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, doc, setDoc, deleteDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'maintenance-app-v1';
+        const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+
+        let app, db, auth;
+        try {
+            app = initializeApp(firebaseConfig);
+            db = getFirestore(app);
+            auth = getAuth(app);
+        } catch(e) {
+            console.error("Firebase init error:", e);
+        }
+
+        // Global State
+        window.currentYear = 2026;
+        window.currentMonth = 11;
+        window.selectedDailyDate = '2026-11-02';
+        window.invYear = 2026;
+        window.invMonth = 10;
+        window.activeTab = 'calendar';
+        window.activeInvSubTab = 'maint';
+        window.dailyCollapsed = false;
+
+        window.dailyChecklists = [];
+        window.notices = [];
+        window.schedules = [];
+        window.monthlyMaintData = {};
+        window.monthlySafetyData = {};
+
+        window.memos = [
+            "※ 물량 증가 시 일정 변동성이 있음",
+            "컨베이어 세척 <span class='text-red-600 font-bold'>매주</span> 진행 (구동부 오일, 구리스 매주 점검)",
+            "폐왁스 평균 <span class='text-red-600 font-bold'>매주</span> 2~3통 반출",
+            "하부 수조 세정수 <span class='text-red-600 font-bold'>2주</span>마다 교체",
+            "급기 롤필터 <span class='text-red-600 font-bold'>2주</span> 점검 및 조치 (상시확인)",
+            "지관필터 <span class='text-red-600 font-bold'>매월</span> 1회 세척",
+            "에어 컴프레셔 <span class='text-red-600 font-bold'>매월</span> 교체",
+            "컨베이어 리턴부 체인텐션 <span class='text-red-600 font-bold'>매월</span> 점검",
+            "배기덕트 프리필터 및 간지 <span class='text-red-600 font-bold'>매월</span> 교체 (상시 확인)"
+        ];
+
+        // Initial default seed data
+        const defaultSchedules = [
+            { id: 1, title: '컨베이어 텐션점검', start: '2026-11-02', end: '2026-11-02', color: 'bg-blue-100 text-blue-800 border-blue-300', status: 'pending', worker: '', memo: '' },
+            { id: 2, title: '지관필터 세척', start: '2026-11-03', end: '2026-11-05', color: 'bg-yellow-100 text-yellow-800 border-yellow-300', status: 'pending', worker: '', memo: '' },
+            { id: 3, title: '롤필터 점검 및 조치', start: '2026-11-06', end: '2026-11-06', color: 'bg-blue-100 text-blue-800 border-blue-300', status: 'pending', worker: '', memo: '' },
+            { id: 4, title: '컨베이어 세척 및 오일류 점검일지 작성', start: '2026-11-07', end: '2026-11-07', color: 'bg-blue-100 text-blue-800 border-blue-300', status: 'pending', worker: '', memo: '' },
+            { id: 5, title: '자동건 점검', start: '2026-11-09', end: '2026-11-09', color: 'bg-blue-100 text-blue-800 border-blue-300', status: 'pending', worker: '', memo: '' },
+            { id: 6, title: '프리필터(69ea) 교체', start: '2026-11-10', end: '2026-11-10', color: 'bg-blue-100 text-blue-800 border-blue-300', status: 'pending', worker: '', memo: '' },
+            { id: 7, title: '급배기 구리스 체크', start: '2026-11-11', end: '2026-11-11', color: 'bg-blue-100 text-blue-800 border-blue-300', status: 'pending', worker: '', memo: '' },
+            { id: 8, title: '호스커버 점검 및 교체', start: '2026-11-12', end: '2026-11-12', color: 'bg-blue-100 text-blue-800 border-blue-300', status: 'pending', worker: '', memo: '' },
+            { id: 9, title: '하부수조 세정수교체', start: '2026-11-13', end: '2026-11-13', color: 'bg-blue-100 text-blue-800 border-blue-300', status: 'pending', worker: '', memo: '' },
+            { id: 10, title: '컨베이어 세척 및 오일류 점검일지 작성', start: '2026-11-14', end: '2026-11-14', color: 'bg-blue-100 text-blue-800 border-blue-300', status: 'pending', worker: '', memo: '' },
+            { id: 11, title: '왁스 실측', start: '2026-11-16', end: '2026-11-19', color: 'bg-yellow-100 text-yellow-800 border-yellow-300', status: 'pending', worker: '', memo: '' },
+            { id: 12, title: '판넬 필터 점검', start: '2026-11-20', end: '2026-11-20', color: 'bg-blue-100 text-blue-800 border-blue-300', status: 'pending', worker: '', memo: '' },
+            { id: 13, title: '컨베이어 세척 및 오일류 점검일지 작성', start: '2026-11-21', end: '2026-11-21', color: 'bg-blue-100 text-blue-800 border-blue-300', status: 'pending', worker: '', memo: '' },
+            { id: 14, title: '자동건 점검', start: '2026-11-23', end: '2026-11-23', color: 'bg-blue-100 text-blue-800 border-blue-300', status: 'pending', worker: '', memo: '' },
+            { id: 15, title: '급배기 구리스 체크', start: '2026-11-25', end: '2026-11-25', color: 'bg-blue-100 text-blue-800 border-blue-300', status: 'pending', worker: '', memo: '' },
+            { id: 16, title: '호스커버 점검 및 교체', start: '2026-11-26', end: '2026-11-26', color: 'bg-blue-100 text-blue-800 border-blue-300', status: 'pending', worker: '', memo: '' },
+            { id: 17, title: '하부수조 세정수교체', start: '2026-11-27', end: '2026-11-27', color: 'bg-blue-100 text-blue-800 border-blue-300', status: 'pending', worker: '', memo: '' },
+            { id: 18, title: '컨베이어 세척 및 오일류 점검일지 작성', start: '2026-11-28', end: '2026-11-28', color: 'bg-blue-100 text-blue-800 border-blue-300', status: 'pending', worker: '', memo: '' },
+            { id: 19, title: '에어 컴프레셔 2호기 > 1호기 교체', start: '2026-11-30', end: '2026-11-30', color: 'bg-red-100 text-red-800 border-red-300', status: 'pending', worker: '', memo: '' }
+        ];
+
+        const defaultNotices = [
+            {
+                id: 1,
+                scope: '전체통합',
+                tag: '상시',
+                title: '업데이트로 인해 전체 새로고침이 필요합니다.',
+                content: '한동안은 Ctrl + Shift + R 을 접속 시 한번만 해주세요.',
+                updatedAt: '2026-10-27 13:02'
+            }
+        ];
+
+        const defaultMaint = [
+            { id: 1, name: '프리필터', spec: '69ea', unit: 'EA', proper: 100, carryover: 120, inDate: '2026-10-10', inQty: 0, outQty: 69 },
+            { id: 2, name: '지관필터', spec: '기본', unit: 'EA', proper: 10, carryover: 12, inDate: '2026-10-05', inQty: 5, outQty: 2 },
+            { id: 3, name: '급배기 구리스', spec: '20L', unit: '통', proper: 5, carryover: 4, inDate: '', inQty: 0, outQty: 1 },
+            { id: 4, name: '호스커버', spec: '10m', unit: '롤', proper: 5, carryover: 8, inDate: '', inQty: 0, outQty: 2 },
+            { id: 5, name: '하부수조 세정수', spec: '20L', unit: '통', proper: 15, carryover: 10, inDate: '2026-10-13', inQty: 10, outQty: 4 }
+        ];
+
+        const defaultSafety = [
+            { id: 1, name: '방독마스크', spec: '3M 6200', unit: 'EA', proper: 20, carryover: 18, inDate: '2026-10-15', inQty: 10, outQty: 5 },
+            { id: 2, name: '방독면 정화통', spec: '3M 6003', unit: 'EA', proper: 50, carryover: 45, inDate: '2026-10-15', inQty: 20, outQty: 15 },
+            { id: 3, name: '내화학장갑', spec: 'L사이즈', unit: '켤레', proper: 30, carryover: 25, inDate: '', inQty: 0, outQty: 8 }
+        ];
+
+        async function initAuthAndFirestore() {
+            try {
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+                const user = auth.currentUser;
+                if (!user) return;
+
+                setupRealtimeSync(user.uid);
+            } catch (err) {
+                console.error("Auth/Sync error:", err);
+                document.getElementById('sync-status').innerText = '오프라인 모드';
+                document.getElementById('sync-status').className = 'text-xs px-2 py-1 bg-amber-100 text-amber-700 rounded-lg font-medium hidden sm:inline';
+                
+                // Fallback to defaults
+                window.schedules = defaultSchedules;
+                window.notices = defaultNotices;
+                window.monthlyMaintData["2026-10"] = defaultMaint;
+                window.monthlySafetyData["2026-10"] = defaultSafety;
+                refreshUI();
+            }
+        }
+
+        function setupRealtimeSync(uid) {
+            // 1. Schedules Sync
+            onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'schedules'), (snapshot) => {
+                window.schedules = [];
+                snapshot.forEach(docSnap => window.schedules.push(docSnap.data()));
+                if(window.schedules.length === 0) {
+                    defaultSchedules.forEach(s => setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'schedules', String(s.id)), s));
+                }
+                refreshUI();
+            }, (err) => console.error(err));
+
+            // 2. Notices Sync
+            onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'notices'), (snapshot) => {
+                window.notices = [];
+                snapshot.forEach(docSnap => window.notices.push(docSnap.data()));
+                if(window.notices.length === 0) {
+                    defaultNotices.forEach(n => setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'notices', String(n.id)), n));
+                }
+                renderNotices();
+            }, (err) => console.error(err));
+
+            // 3. Daily Checklists Sync
+            onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'checklists'), (snapshot) => {
+                window.dailyChecklists = [];
+                snapshot.forEach(docSnap => window.dailyChecklists.push(docSnap.data()));
+                renderDailySchedules();
+            }, (err) => console.error(err));
+
+            // 4. Inventory Maint Sync
+            onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'inventory_maint'), (snapshot) => {
+                window.monthlyMaintData = {};
+                snapshot.forEach(docSnap => {
+                    const d = docSnap.data();
+                    const monthKey = d.monthKey || '2026-10';
+                    if(!window.monthlyMaintData[monthKey]) window.monthlyMaintData[monthKey] = [];
+                    window.monthlyMaintData[monthKey].push(d);
+                });
+                if(Object.keys(window.monthlyMaintData).length === 0) {
+                    defaultMaint.forEach(m => {
+                        m.monthKey = '2026-10';
+                        setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'inventory_maint', String(m.id)), m);
+                    });
+                }
+                renderInventory();
+            }, (err) => console.error(err));
+
+            // 5. Inventory Safety Sync
+            onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'inventory_safety'), (snapshot) => {
+                window.monthlySafetyData = {};
+                snapshot.forEach(docSnap => {
+                    const d = docSnap.data();
+                    const monthKey = d.monthKey || '2026-10';
+                    if(!window.monthlySafetyData[monthKey]) window.monthlySafetyData[monthKey] = [];
+                    window.monthlySafetyData[monthKey].push(d);
+                });
+                if(Object.keys(window.monthlySafetyData).length === 0) {
+                    defaultSafety.forEach(s => {
+                        s.monthKey = '2026-10';
+                        setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'inventory_safety', String(s.id)), s);
+                    });
+                }
+                renderInventory();
+            }, (err) => console.error(err));
+        }
+
+        function refreshUI() {
+            autoCarryoverUnfinishedTasks();
+            renderNotices();
+            renderDailySchedules();
+            renderCalendar();
+            renderInventory();
+        }
+
+        window.onload = function() {
+            const dateInput = document.getElementById('daily-date-select');
+            if(dateInput) dateInput.value = window.selectedDailyDate;
+            initAuthAndFirestore();
+        };
+
+        window.autoCarryoverUnfinishedTasks = function() {
+            const todayStr = window.selectedDailyDate;
+            window.dailyChecklists.forEach(item => {
+                if(!item.completed && item.date < todayStr) {
+                    item.date = todayStr;
+                    setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'checklists', String(item.id)), item);
+                }
+            });
+        };
+
+        window.toggleDailyCollapse = function() {
+            window.dailyCollapsed = !window.dailyCollapsed;
+            const body = document.getElementById('daily-schedule-body');
+            const arrow = document.getElementById('daily-arrow');
+            if (body) body.classList.toggle('hidden', window.dailyCollapsed);
+            if (arrow) arrow.style.transform = window.dailyCollapsed ? 'rotate(-90deg)' : 'rotate(0deg)';
+        };
+
+        window.selectDailyDate = function(dateStr) {
+            window.selectedDailyDate = dateStr;
+            const dateInput = document.getElementById('daily-date-select');
+            if (dateInput) dateInput.value = dateStr;
+            autoCarryoverUnfinishedTasks();
+            renderCalendar();
+            renderDailySchedules();
+        };
+
+        window.onDailyDateChange = function(val) {
+            if (val) selectDailyDate(val);
+        };
+
+        window.renderDailySchedules = function() {
+            const container = document.getElementById('daily-schedule-body');
+            if (!container) return;
+
+            const daySchedules = window.schedules.filter(s => s.start <= window.selectedDailyDate && s.end >= window.selectedDailyDate);
+            const dayChecklists = window.dailyChecklists.filter(c => c.date === window.selectedDailyDate);
+
+            let html = `<div class="space-y-4 pt-1">`;
+
+            html += `<div class="bg-white p-3 rounded-xl border border-slate-200 shadow-sm space-y-2">
+                <div class="text-xs font-bold text-blue-700 flex items-center justify-between">
+                    <span>📅 달력 연동 일정 (${window.selectedDailyDate})</span>
+                    <span class="text-slate-400 font-normal">총 ${daySchedules.length}건</span>
+                </div>`;
+            
+            if (daySchedules.length === 0) {
+                html += `<div class="text-xs text-slate-400 py-2 text-center">해당 날짜에 등록된 달력 일정이 없습니다.</div>`;
+            } else {
+                html += `<div class="space-y-2">`;
+                daySchedules.forEach(s => {
+                    const isCompleted = s.status === 'completed';
+                    html += `
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between bg-slate-50 p-2.5 rounded-lg border border-slate-100 gap-2">
+                            <div class="flex items-center space-x-2">
+                                <input type="checkbox" ${isCompleted ? 'checked' : ''} onchange="toggleScheduleStatusFromDaily(${s.id})" class="w-4 h-4 text-blue-600 rounded cursor-pointer">
+                                <span class="text-xs font-semibold ${isCompleted ? 'line-through text-slate-400' : 'text-slate-800'}">${s.title}</span>
+                            </div>
+                            <div class="flex items-center space-x-2 self-end sm:self-center">
+                                <div class="flex items-center space-x-1">
+                                    <span class="text-[11px] text-slate-500 font-medium">작업자:</span>
+                                    <input type="text" value="${s.worker || ''}" onchange="updateScheduleWorker(${s.id}, this.value)" placeholder="이름 입력" class="w-24 border border-slate-300 rounded px-2 py-1 text-xs focus:ring-1 focus:ring-blue-500 outline-none bg-white">
+                                </div>
+                                <span class="text-[10px] px-2 py-0.5 rounded font-medium ${isCompleted ? 'bg-emerald-100 text-emerald-800' : 'bg-blue-100 text-blue-800'}">${isCompleted ? '완료' : '진행예정'}</span>
+                            </div>
+                        </div>
+                    `;
+                });
+                html += `</div>`;
+            }
+            html += `</div>`;
+
+            html += `<div class="bg-white p-3 rounded-xl border border-slate-200 shadow-sm space-y-2">
+                <div class="text-xs font-bold text-amber-700 flex items-center justify-between">
+                    <span>📝 금주 해야 하는 작업 (세부 점검)</span>
+                    <button onclick="addDailyChecklistPrompt()" class="bg-amber-600 hover:bg-amber-700 text-white px-2 py-1 rounded text-[11px] font-bold shadow-sm">+ 세부 작업 추가</button>
+                </div>`;
+
+            if (dayChecklists.length === 0) {
+                html += `<div class="text-xs text-slate-400 py-2 text-center">등록된 세부 작업이 없습니다. (+ 세부 작업 추가 버튼을 눌러주세요)</div>`;
+            } else {
+                html += `<div class="space-y-2">`;
+                dayChecklists.forEach(c => {
+                    html += `
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between bg-amber-50/40 p-2.5 rounded-lg border border-amber-100 gap-2">
+                            <div class="flex items-center space-x-2 flex-1">
+                                <input type="checkbox" ${c.completed ? 'checked' : ''} onchange="toggleDailyChecklist(${c.id})" class="w-4 h-4 text-amber-600 rounded cursor-pointer">
+                                <input type="text" value="${c.title}" onchange="updateChecklistTitle(${c.id}, this.value)" class="w-full bg-transparent border-b border-transparent hover:border-slate-300 focus:border-amber-500 text-xs text-slate-800 outline-none px-1 py-0.5 ${c.completed ? 'line-through text-slate-400' : ''}">
+                            </div>
+                            <div class="flex items-center space-x-2 self-end sm:self-center">
+                                <div class="flex items-center space-x-1">
+                                    <span class="text-[11px] text-slate-500 font-medium">작업자:</span>
+                                    <input type="text" value="${c.worker || ''}" onchange="updateChecklistWorker(${c.id}, this.value)" placeholder="이름 입력" class="w-24 border border-slate-300 rounded px-2 py-1 text-xs focus:ring-1 focus:ring-amber-500 outline-none bg-white">
+                                </div>
+                                <button onclick="deleteDailyChecklist(${c.id})" class="text-slate-400 hover:text-red-600 p-1 text-xs">삭제</button>
+                            </div>
+                        </div>
+                    `;
+                });
+                html += `</div>`;
+            }
+            html += `</div></div>`;
+
+            container.innerHTML = html;
+        };
+
+        window.toggleScheduleStatusFromDaily = function(id) {
+            const s = window.schedules.find(x => x.id === id);
+            if(s) {
+                s.status = s.status === 'completed' ? 'pending' : 'completed';
+                setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'schedules', String(s.id)), s);
+                renderCalendar();
+                renderDailySchedules();
+            }
+        };
+
+        window.updateScheduleWorker = function(id, val) {
+            const s = window.schedules.find(x => x.id === id);
+            if(s) {
+                s.worker = val.trim();
+                setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'schedules', String(s.id)), s);
+                renderCalendar();
+            }
+        };
+
+        window.addDailyChecklistPrompt = function() {
+            const title = prompt("추가할 금주 해야 하는 작업 내용을 입력하세요:");
+            if(!title) return;
+            const workerName = prompt("작업자 이름을 입력하세요 (선택사항):") || "";
+            const newItem = {
+                id: Date.now(),
+                date: window.selectedDailyDate,
+                title: title.trim(),
+                completed: false,
+                worker: workerName.trim()
+            };
+            setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'checklists', String(newItem.id)), newItem);
+        };
+
+        window.toggleDailyChecklist = function(id) {
+            const c = window.dailyChecklists.find(x => x.id === id);
+            if(c) {
+                c.completed = !c.completed;
+                setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'checklists', String(c.id)), c);
+                renderDailySchedules();
+            }
+        };
+
+        window.updateChecklistTitle = function(id, val) {
+            const c = window.dailyChecklists.find(x => x.id === id);
+            if(c) {
+                c.title = val.trim();
+                setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'checklists', String(c.id)), c);
+            }
+        };
+
+        window.updateChecklistWorker = function(id, val) {
+            const c = window.dailyChecklists.find(x => x.id === id);
+            if(c) {
+                c.worker = val.trim();
+                setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'checklists', String(c.id)), c);
+            }
+        };
+
+        window.deleteDailyChecklist = function(id) {
+            deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'checklists', String(id)));
+        };
+
+        window.renderNotices = function() {
+            const container = document.getElementById('notice-list');
+            if(!container) return;
+
+            if(window.notices.length === 0) {
+                container.innerHTML = `<div class="text-xs text-slate-500 text-center py-2">등록된 금일 특이사항이 없습니다.</div>`;
+                return;
+            }
+
+            container.innerHTML = window.notices.map(n => `
+                <div class="bg-white p-4 rounded-xl border border-amber-200 shadow-sm space-y-2 relative">
+                    <div class="flex items-center justify-between flex-wrap gap-2">
+                        <div class="flex items-center space-x-2">
+                            ${n.scope ? `<span class="bg-amber-100 text-amber-800 text-xs px-2.5 py-0.5 rounded-full font-bold">[${n.scope}]</span>` : ''}
+                            ${n.tag ? `<span class="bg-red-100 text-red-700 text-xs px-2 py-0.5 rounded font-medium">📌 ${n.tag}</span>` : ''}
+                        </div>
+                        <div class="flex items-center space-x-1">
+                            <button onclick="openNoticeModal(${n.id})" class="text-xs text-slate-600 bg-slate-100 hover:bg-slate-200 px-2.5 py-1 rounded-lg font-medium">수정</button>
+                            <button onclick="deleteNoticeById(${n.id})" class="text-xs text-red-600 bg-red-50 hover:bg-red-100 px-2.5 py-1 rounded-lg font-medium">삭제</button>
+                        </div>
+                    </div>
+                    <div>
+                        <h4 class="font-bold text-slate-800 text-sm md:text-base">${n.title}</h4>
+                        <p class="text-xs md:text-sm text-slate-600 mt-1 whitespace-pre-line">${n.content || ''}</p>
+                    </div>
+                    <div class="flex justify-between items-center text-[11px] text-slate-400 pt-1 border-t border-slate-100">
+                        <span>🕒 등록/수정: ${n.updatedAt}</span>
+                    </div>
+                </div>
+            `).join('');
+        };
+
+        window.openNoticeModal = function(id = null) {
+            const modal = document.getElementById('modal-notice');
+            const content = document.getElementById('modal-notice-content');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            setTimeout(() => { content.classList.remove('translate-y-full'); }, 10);
+
+            if(id) {
+                const n = window.notices.find(x => x.id === id);
+                document.getElementById('notice-modal-title').innerText = '금일 특이사항 수정';
+                document.getElementById('notice-id').value = n.id;
+                document.getElementById('notice-scope').value = n.scope || '';
+                document.getElementById('notice-tag').value = n.tag || '';
+                document.getElementById('notice-title').value = n.title || '';
+                document.getElementById('notice-content').value = n.content || '';
+                document.getElementById('btn-notice-delete').classList.remove('hidden');
+            } else {
+                document.getElementById('notice-modal-title').innerText = '금일 특이사항 등록';
+                document.getElementById('notice-id').value = '';
+                document.getElementById('notice-scope').value = '';
+                document.getElementById('notice-tag').value = '';
+                document.getElementById('notice-title').value = '';
+                document.getElementById('notice-content').value = '';
+                document.getElementById('btn-notice-delete').classList.add('hidden');
+            }
+        };
+
+        window.saveNotice = function() {
+            const id = document.getElementById('notice-id').value;
+            const title = document.getElementById('notice-title').value.trim();
+            if(!title) return alert('공지 제목을 입력하세요.');
+
+            const now = new Date();
+            const dateStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+
+            const data = {
+                id: id ? parseInt(id) : Date.now(),
+                scope: document.getElementById('notice-scope').value.trim(),
+                tag: document.getElementById('notice-tag').value.trim(),
+                title,
+                content: document.getElementById('notice-content').value.trim(),
+                updatedAt: dateStr
+            };
+
+            setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'notices', String(data.id)), data);
+            closeModal('notice');
+        };
+
+        window.deleteNotice = function() {
+            const id = document.getElementById('notice-id').value;
+            if(id) {
+                deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'notices', String(id)));
+                closeModal('notice');
+            }
+        };
+
+        window.deleteNoticeById = function(id) {
+            if(confirm("해당 특이사항을 삭제하시겠습니까?")) {
+                deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'notices', String(id)));
+            }
+        };
+
+        window.switchTab = function(tab) {
+            window.activeTab = tab;
+            document.getElementById('tab-calendar').classList.toggle('hidden', tab !== 'calendar');
+            document.getElementById('tab-inventory').classList.toggle('hidden', tab !== 'inventory');
+            
+            const topCal = document.getElementById('top-nav-calendar');
+            const topInv = document.getElementById('top-nav-inventory');
+            if (topCal && topInv) {
+                topCal.className = tab === 'calendar' 
+                    ? 'flex items-center px-4 py-2 rounded-lg bg-blue-600 text-white font-bold shadow-sm transition-all text-sm'
+                    : 'flex items-center px-4 py-2 rounded-lg text-slate-600 hover:bg-slate-200 font-medium transition-all text-sm';
+                topInv.className = tab === 'inventory'
+                    ? 'flex items-center px-4 py-2 rounded-lg bg-blue-600 text-white font-bold shadow-sm transition-all text-sm'
+                    : 'flex items-center px-4 py-2 rounded-lg text-slate-600 hover:bg-slate-200 font-medium transition-all text-sm';
+            }
+
+            if (document.getElementById('mobile-nav-calendar')) {
+                document.getElementById('mobile-nav-calendar').className = tab === 'calendar' ? 'flex flex-col items-center justify-center w-full h-full text-blue-600' : 'flex flex-col items-center justify-center w-full h-full text-slate-400 hover:text-slate-800';
+            }
+            if (document.getElementById('mobile-nav-inventory')) {
+                document.getElementById('mobile-nav-inventory').className = tab === 'inventory' ? 'flex flex-col items-center justify-center w-full h-full text-blue-600' : 'flex flex-col items-center justify-center w-full h-full text-slate-400 hover:text-slate-800';
+            }
+
+            if (tab === 'calendar') renderCalendar();
+            if (tab === 'inventory') renderInventory();
+        };
+
+        window.renderCalendar = function() {
+            document.getElementById('calendar-title').innerText = `${window.currentYear}년 ${window.currentMonth}월`;
+            const tbody = document.getElementById('calendar-body');
+            tbody.innerHTML = '';
+            
+            const firstDay = new Date(window.currentYear, window.currentMonth - 1, 1).getDay();
+            const daysInMonth = new Date(window.currentYear, window.currentMonth, 0).getDate();
+            
+            let html = '';
+            let dayCount = 1;
+            
+            for (let i = 0; i < 6; i++) {
+                if (dayCount > daysInMonth) break;
+                for (let j = 0; j < 7; j++) {
+                    if (i === 0 && j < firstDay) {
+                        html += `<div class="calendar-cell bg-slate-50"></div>`;
+                    } else if (dayCount > daysInMonth) {
+                        html += `<div class="calendar-cell bg-slate-50"></div>`;
+                    } else {
+                        let dateStr = `${window.currentYear}-${String(window.currentMonth).padStart(2, '0')}-${String(dayCount).padStart(2, '0')}`;
+                        
+                        let dayEvents = window.schedules.filter(s => s.start <= dateStr && s.end >= dateStr);
+                        
+                        let eventsHtml = dayEvents.map(evt => {
+                            const isMulti = evt.start !== evt.end;
+                            const isCompleted = evt.status === 'completed';
+                            const eventColor = isCompleted ? 'bg-emerald-100 text-emerald-800 border-emerald-300' : evt.color;
+                            
+                            let workerBadge = '';
+                            if (evt.worker) {
+                                workerBadge = `<div class="mt-1 text-[10px] bg-white bg-opacity-70 px-1.5 py-0.5 rounded shadow-sm inline-block whitespace-normal break-words">[작업자: ${evt.worker}]</div>`;
+                            }
+
+                            let titleContent = `
+                                <div class="flex items-start">
+                                    ${isCompleted ? `<svg class="w-3.5 h-3.5 mr-1 mt-0.5 shrink-0 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>` : ''}
+                                    <span class="whitespace-normal break-keep leading-tight">${evt.title}</span>
+                                </div>
+                                ${workerBadge}
+                            `;
+
+                            if (isMulti) {
+                                let arrowDir = '';
+                                if (dateStr === evt.start) arrowDir = 'rounded-l-md border-l-2';
+                                else if (dateStr === evt.end) arrowDir = 'rounded-r-md border-r-2';
+                                else arrowDir = 'border-l-0 border-r-0';
+                                
+                                return `<div onclick="event.stopPropagation(); openScheduleModal(${evt.id})" class="mt-1 px-1.5 py-1 text-xs border ${eventColor} cursor-pointer hover:opacity-80 transition-opacity ${arrowDir} flex flex-col items-start leading-normal">
+                                            ${titleContent}
+                                        </div>`;
+                            } else {
+                                return `<div onclick="event.stopPropagation(); openScheduleModal(${evt.id})" class="mt-1 px-1.5 py-1 text-xs border rounded-md ${eventColor} cursor-pointer hover:shadow-sm transition-all flex flex-col items-start leading-normal">
+                                            ${titleContent}
+                                        </div>`;
+                            }
+                        }).join('');
+
+                        let dayClass = j === 0 ? "text-red-500 font-medium" : j === 6 ? "text-blue-500 font-medium" : "text-slate-700";
+                        let isSelectedDay = dateStr === window.selectedDailyDate;
+                        let selectBorder = isSelectedDay ? "ring-2 ring-blue-500 bg-blue-50/40" : "";
+
+                        html += `
+                            <div onclick="selectDailyDate('${dateStr}')" class="calendar-cell p-1 sm:p-2 relative group hover:bg-slate-50 transition-colors cursor-pointer ${selectBorder}">
+                                <div class="${dayClass} text-sm mb-1 ml-1 flex justify-between items-center">
+                                    <span>${dayCount}</span>
+                                    ${isSelectedDay ? '<span class="text-[9px] bg-blue-600 text-white px-1.5 py-0.2 rounded-full font-normal">선택일</span>' : ''}
+                                </div>
+                                <div class="space-y-0.5">
+                                    ${eventsHtml}
+                                </div>
+                            </div>
+                        `;
+                        dayCount++;
+                    }
+                }
+            }
+            tbody.innerHTML = html;
+            document.getElementById('memo-list').innerHTML = window.memos.map(m => `<li><span class="mr-2 text-slate-400">•</span>${m}</li>`).join('');
+        };
+
+        window.changeMonth = function(delta) {
+            window.currentMonth += delta;
+            if (window.currentMonth > 12) { window.currentMonth = 1; window.currentYear++; }
+            if (window.currentMonth < 1) { window.currentMonth = 12; window.currentYear--; }
+            renderCalendar();
+        };
+
+        window.openScheduleModal = function(id = null) {
+            const modal = document.getElementById('modal-schedule');
+            const content = document.getElementById('modal-schedule-content');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            setTimeout(() => { content.classList.remove('translate-y-full'); }, 10);
+
+            if (id) {
+                const s = window.schedules.find(x => x.id === id);
+                document.getElementById('modal-title').innerText = '일정 수정';
+                document.getElementById('sch-id').value = s.id;
+                document.getElementById('sch-title').value = s.title;
+                document.getElementById('sch-start').value = s.start;
+                document.getElementById('sch-end').value = s.end;
+                document.getElementById('sch-color').value = s.color;
+                document.getElementById('sch-worker').value = s.worker || '';
+                document.getElementById('sch-memo').value = s.memo || '';
+                document.getElementById('btn-sch-delete').classList.remove('hidden');
+                
+                const completeBtn = document.getElementById('btn-sch-complete');
+                if(s.status === 'completed') {
+                    completeBtn.innerHTML = `<svg class="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>완료 취소`;
+                    completeBtn.className = "flex-1 mr-2 py-2.5 border-2 border-slate-300 text-slate-600 font-bold rounded-xl hover:bg-slate-50 transition-colors flex justify-center items-center";
+                } else {
+                    completeBtn.innerHTML = `<svg class="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>작업 완료 처리`;
+                    completeBtn.className = "flex-1 mr-2 py-2.5 border-2 border-emerald-500 text-emerald-600 font-bold rounded-xl hover:bg-emerald-50 transition-colors flex justify-center items-center";
+                }
+            } else {
+                document.getElementById('modal-title').innerText = '새 일정 추가';
+                document.getElementById('sch-id').value = '';
+                document.getElementById('sch-title').value = '';
+                document.getElementById('sch-start').value = `${window.currentYear}-${String(window.currentMonth).padStart(2, '0')}-01`;
+                document.getElementById('sch-end').value = `${window.currentYear}-${String(window.currentMonth).padStart(2, '0')}-01`;
+                document.getElementById('sch-color').value = 'bg-blue-100 text-blue-800 border-blue-300';
+                document.getElementById('sch-worker').value = '';
+                document.getElementById('sch-memo').value = '';
+                document.getElementById('btn-sch-delete').classList.add('hidden');
+                document.getElementById('btn-sch-complete').innerHTML = `<svg class="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>완료 및 저장`;
+                document.getElementById('btn-sch-complete').className = "flex-1 mr-2 py-2.5 border-2 border-emerald-500 text-emerald-600 font-bold rounded-xl hover:bg-emerald-50 transition-colors flex justify-center items-center";
+            }
+        };
+
+        window.toggleScheduleComplete = function() {
+            const worker = document.getElementById('sch-worker').value.trim();
+            if(!worker) {
+                const name = prompt("작업자 이름을 입력해주세요:");
+                if(!name) return;
+                document.getElementById('sch-worker').value = name;
+            }
+            
+            const id = document.getElementById('sch-id').value;
+            let targetStatus = 'completed';
+            
+            if (id) {
+                const s = window.schedules.find(x => x.id == id);
+                targetStatus = s.status === 'completed' ? 'pending' : 'completed';
+                s.status = targetStatus;
+            }
+            
+            saveSchedule(targetStatus);
+        };
+
+        window.saveSchedule = function(forceStatus = null) {
+            const id = document.getElementById('sch-id').value;
+            const title = document.getElementById('sch-title').value.trim();
+            const start = document.getElementById('sch-start').value;
+            const end = document.getElementById('sch-end').value;
+            
+            if (!title || !start || !end) return alert('필수 항목을 입력하세요.');
+
+            let currentStatus = 'pending';
+            if (id) {
+                const existing = window.schedules.find(x => x.id == id);
+                if(existing) currentStatus = existing.status;
+            }
+
+            const data = {
+                id: id ? parseInt(id) : Date.now(),
+                title, start, end,
+                color: document.getElementById('sch-color').value,
+                worker: document.getElementById('sch-worker').value,
+                memo: document.getElementById('sch-memo').value,
+                status: forceStatus || currentStatus
+            };
+
+            setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'schedules', String(data.id)), data);
+            closeModal('schedule');
+        };
+
+        window.deleteSchedule = function() {
+            const id = document.getElementById('sch-id').value;
+            if (id) {
+                deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'schedules', String(id)));
+                closeModal('schedule');
+            }
+        };
+
+        window.getInventoryForMonth = function(type, year, month) {
+            const key = `${year}-${String(month).padStart(2, '0')}`;
+            const store = type === 'maint' ? window.monthlyMaintData : window.monthlySafetyData;
+            if (!store[key]) store[key] = [];
+            return store[key];
+        };
+
+        window.switchInvSubTab = function(tab) {
+            window.activeInvSubTab = tab;
+            document.getElementById('subtab-maint').className = tab === 'maint' ? 'px-6 py-3 border-b-2 border-blue-600 text-blue-600 font-bold transition-colors' : 'px-6 py-3 border-b-2 border-transparent text-slate-500 hover:text-slate-800 font-medium transition-colors';
+            document.getElementById('subtab-safety').className = tab === 'safety' ? 'px-6 py-3 border-b-2 border-blue-600 text-blue-600 font-bold transition-colors' : 'px-6 py-3 border-b-2 border-transparent text-slate-500 hover:text-slate-800 font-medium transition-colors';
+            renderInventory();
+        };
+
+        window.changeInvMonth = function(delta) {
+            window.invMonth += delta;
+            if (window.invMonth > 12) { window.invMonth = 1; window.invYear++; }
+            if (window.invMonth < 1) { window.invMonth = 12; window.invYear--; }
+            renderInventory();
+        };
+
+        window.renderInventory = function() {
+            document.getElementById('inv-calendar-title').innerText = `${window.invYear}년 ${window.invMonth}월 재고`;
+            const tbody = document.getElementById('inventory-tbody');
+            const data = getInventoryForMonth(window.activeInvSubTab, window.invYear, window.invMonth);
+            
+            tbody.innerHTML = data.map((item, index) => {
+                const current = item.carryover + item.inQty - item.outQty;
+                const isShort = current < item.proper;
+                
+                let inDisplay = item.inQty > 0 ? `<span class="text-emerald-600 font-medium">+${item.inQty}</span>` : '-';
+                if(item.inDate && item.inQty > 0) {
+                    inDisplay = `<div class="text-[10px] text-slate-400">${item.inDate}</div>${inDisplay}`;
+                }
+
+                return `
+                    <tr class="hover:bg-slate-50 transition-colors border-b border-slate-100 last:border-0 cursor-pointer" onclick="openInvModal(${item.id})">
+                        <td class="px-4 py-3 text-center text-slate-500">${index + 1}</td>
+                        <td class="px-4 py-3 font-medium text-slate-800">${item.name}</td>
+                        <td class="px-4 py-3 text-slate-600">${item.spec}</td>
+                        <td class="px-4 py-3 text-center text-slate-500">${item.unit}</td>
+                        <td class="px-4 py-3 text-right text-slate-600">${item.proper}</td>
+                        <td class="px-4 py-3 text-right text-slate-600">${item.carryover}</td>
+                        <td class="px-4 py-3 text-right">${inDisplay}</td>
+                        <td class="px-4 py-3 text-right ${item.outQty > 0 ? 'text-rose-600 font-medium' : 'text-slate-400'}">${item.outQty > 0 ? `-${item.outQty}` : '-'}</td>
+                        <td class="px-4 py-3 text-right font-bold ${isShort ? 'text-red-600' : 'text-blue-600'}">${current}</td>
+                        <td class="px-4 py-3 text-center">
+                            ${isShort ? '<span class="bg-red-100 text-red-700 px-2.5 py-1 rounded-full text-xs font-bold shadow-sm">부족</span>' : '<span class="bg-slate-100 text-slate-600 px-2.5 py-1 rounded-full text-xs font-medium">정상</span>'}
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+
+            if(data.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="10" class="py-12 text-center text-slate-400">등록된 재고 품목이 없습니다.</td></tr>`;
+            }
+        };
+
+        window.openInvModal = function(id = null) {
+            const modal = document.getElementById('modal-inventory');
+            const content = document.getElementById('modal-inv-content');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            setTimeout(() => { content.classList.remove('translate-y-full'); }, 10);
+
+            const dataStore = getInventoryForMonth(window.activeInvSubTab, window.invYear, window.invMonth);
+
+            if (id) {
+                const item = dataStore.find(x => x.id === id);
+                document.getElementById('inv-modal-title').innerText = '재고 품목 수정';
+                document.getElementById('inv-id').value = item.id;
+                document.getElementById('inv-name').value = item.name;
+                document.getElementById('inv-spec').value = item.spec;
+                document.getElementById('inv-unit').value = item.unit;
+                document.getElementById('inv-proper').value = item.proper;
+                document.getElementById('inv-carry').value = item.carryover;
+                document.getElementById('inv-indate').value = item.inDate || '';
+                document.getElementById('inv-in').value = item.inQty;
+                document.getElementById('inv-out').value = item.outQty;
+                document.getElementById('btn-inv-delete').classList.remove('hidden');
+            } else {
+                document.getElementById('inv-modal-title').innerText = '새 품목 추가';
+                document.getElementById('inv-id').value = '';
+                document.getElementById('inv-name').value = '';
+                document.getElementById('inv-spec').value = '';
+                document.getElementById('inv-unit').value = 'EA';
+                document.getElementById('inv-proper').value = 0;
+                document.getElementById('inv-carry').value = 0;
+                document.getElementById('inv-indate').value = '';
+                document.getElementById('inv-in').value = 0;
+                document.getElementById('inv-out').value = 0;
+                document.getElementById('btn-inv-delete').classList.add('hidden');
+            }
+        };
+
+        window.saveInventory = function() {
+            const id = document.getElementById('inv-id').value;
+            const name = document.getElementById('inv-name').value.trim();
+            if (!name) return alert('품목명을 입력하세요.');
+
+            const monthKey = `${window.invYear}-${String(window.invMonth).padStart(2,'0')}`;
+            const data = {
+                id: id ? parseInt(id) : Date.now(),
+                monthKey,
+                name,
+                spec: document.getElementById('inv-spec').value,
+                unit: document.getElementById('inv-unit').value,
+                proper: parseInt(document.getElementById('inv-proper').value) || 0,
+                carryover: parseInt(document.getElementById('inv-carry').value) || 0,
+                inDate: document.getElementById('inv-indate').value,
+                inQty: parseInt(document.getElementById('inv-in').value) || 0,
+                outQty: parseInt(document.getElementById('inv-out').value) || 0
+            };
+
+            const collectionName = window.activeInvSubTab === 'maint' ? 'inventory_maint' : 'inventory_safety';
+            setDoc(doc(db, 'artifacts', appId, 'public', 'data', collectionName, String(data.id)), data);
+            closeModal('inventory');
+        };
+
+        window.deleteInventory = function() {
+            const id = document.getElementById('inv-id').value;
+            if (id) {
+                const collectionName = window.activeInvSubTab === 'maint' ? 'inventory_maint' : 'inventory_safety';
+                deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', collectionName, String(id)));
+                closeModal('inventory');
+            }
+        };
+
+        window.closeModal = function(type) {
+            const modal = document.getElementById(`modal-${type}`);
+            if (!modal) return;
+            let content = document.getElementById(`modal-${type}-content`) || modal.querySelector('.transform') || modal.firstElementChild;
+            if (content) content.classList.add('translate-y-full');
+            setTimeout(() => {
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+            }, 300);
+        };
+
+        // Excel Export functions
+        window.exportCalendarToExcel = function() {
+            const title = `시설보전_월간계획_달력양식_${window.currentYear}년${String(window.currentMonth).padStart(2,'0')}월`;
+            const firstDay = new Date(window.currentYear, window.currentMonth - 1, 1).getDay();
+            const daysInMonth = new Date(window.currentYear, window.currentMonth, 0).getDate();
+
+            let prevYear = window.currentYear, prevMonth = window.currentMonth - 1;
+            if(prevMonth < 1) { prevMonth = 12; prevYear--; }
+            let nextYear = window.currentYear, nextMonth = window.currentMonth + 1;
+            if(nextMonth > 12) { nextMonth = 1; nextYear++; }
+
+            const getMiniCalendarHTML = (y, m) => {
+                const fd = new Date(y, m - 1, 1).getDay();
+                const dim = new Date(y, m, 0).getDate();
+                let html = `<table border="0" cellpadding="1" cellspacing="0" style="font-size: 7pt; font-family: 'Malgun Gothic'; border-collapse: collapse;">`;
+                html += `<tr><th colspan="7" style="text-align: right; font-weight: bold; color: #1E3A8A; padding-bottom: 2px;">${y}년-${String(m).padStart(2,'0')}</th></tr>`;
+                html += `<tr style="color: #64748B; text-align: center;"><td>일</td><td>월</td><td>화</td><td>수</td><td>목</td><td>금</td><td>토</td></tr><tr>`;
+                let d = 1;
+                for(let i=0; i<6; i++) {
+                    if(d > dim) break;
+                    for(let j=0; j<7; j++) {
+                        if((i===0 && j < fd) || d > dim) {
+                            html += `<td></td>`;
+                        } else {
+                            html += `<td style="text-align: center; color: #334155; padding: 1px 2px;">${d}</td>`;
+                            d++;
+                        }
+                    }
+                    html += `</tr><tr>`;
+                }
+                html += `</tr></table>`;
+                return html;
+            };
+
+            let tableHTML = `
+                <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+                <head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"></head>
+                <body>
+                <table border="1" cellpadding="4" cellspacing="0" style="border-collapse: collapse; font-family: 'Malgun Gothic', '맑은 고딕', sans-serif; width: 100%;">
+                    <thead>
+                        <tr>
+                            <td colspan="5" style="border: none; font-size: 24pt; font-weight: bold; color: #1D4ED8; padding: 10px 5px; vertical-align: bottom;">
+                                ${window.currentYear}년 <span style="color: #0F172A;">${window.currentMonth}월</span>
+                            </td>
+                            <td colspan="2" style="border: none; text-align: right; vertical-align: top; padding: 5px;">
+                                <table align="right" border="0" cellpadding="0" cellspacing="0">
+                                    <tr>
+                                        <td style="padding-right: 15px; vertical-align: top;">${getMiniCalendarHTML(prevYear, prevMonth)}</td>
+                                        <td style="vertical-align: top;">${getMiniCalendarHTML(nextYear, nextMonth)}</td>
+                                    </tr>
+                                </table>
+                            </td>
+                        </tr>
+                        <tr style="background-color: #1E3A8A; color: #FFFFFF; font-weight: bold; text-align: center; font-size: 11pt; height: 35px;">
+                            <th style="border: 1px solid #1E3A8A; width: 14%; color: #FCA5A5;">일요일</th>
+                            <th style="border: 1px solid #1E3A8A; width: 14%;">월요일</th>
+                            <th style="border: 1px solid #1E3A8A; width: 14%;">화요일</th>
+                            <th style="border: 1px solid #1E3A8A; width: 14%;">수요일</th>
+                            <th style="border: 1px solid #1E3A8A; width: 14%;">목요일</th>
+                            <th style="border: 1px solid #1E3A8A; width: 14%;">금요일</th>
+                            <th style="border: 1px solid #1E3A8A; width: 14%; color: #93C5FD;">토요일</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+
+            let dayCount = 1;
+            for (let i = 0; i < 6; i++) {
+                if (dayCount > daysInMonth) break;
+                tableHTML += `<tr style="height: 90px;">`;
+                for (let j = 0; j < 7; j++) {
+                    if ((i === 0 && j < firstDay) || dayCount > daysInMonth) {
+                        tableHTML += `<td style="border: 1px solid #94A3B8; background-color: #F8FAFC; vertical-align: top;"></td>`;
+                    } else {
+                        const dateStr = `${window.currentYear}-${String(window.currentMonth).padStart(2, '0')}-${String(dayCount).padStart(2, '0')}`;
+                        const dayEvents = window.schedules.filter(s => s.start <= dateStr && s.end >= dateStr);
+
+                        let dateColor = "#1E3A8A";
+                        if (j === 0) dateColor = "#DC2626";
+                        if (j === 6) dateColor = "#2563EB";
+
+                        let eventsCellHtml = dayEvents.map(evt => {
+                            const isMulti = evt.start !== evt.end;
+                            let extraStyle = "";
+                            if (isMulti) {
+                                if (dateStr === evt.start) extraStyle = "border-left: 3px solid #DC2626; padding-left: 3px;";
+                                else if (dateStr === evt.end) extraStyle = "border-right: 3px solid #DC2626; padding-right: 3px;";
+                                else extraStyle = "text-align: center; color: #DC2626; font-weight: bold;";
+                            }
+                            let contentText = evt.title;
+                            if (isMulti && dateStr !== evt.start && dateStr !== evt.end) {
+                                contentText = "← &nbsp; " + evt.title + " &nbsp; →";
+                            }
+                            return `<div style="font-size: 8.5pt; color: #0F172A; margin-top: 4px; ${extraStyle}">${contentText}</div>`;
+                        }).join('');
+
+                        tableHTML += `
+                            <td style="border: 1px solid #94A3B8; vertical-align: top; padding: 6px; background-color: #FFFFFF;">
+                                <div style="font-size: 11pt; font-weight: bold; color: ${dateColor}; margin-bottom: 4px;">${dayCount}</div>
+                                ${eventsCellHtml}
+                            </td>
+                        `;
+                        dayCount++;
+                    }
+                }
+                tableHTML += `</tr>`;
+            }
+
+            tableHTML += `
+                <tr style="height: 40px;"><td colspan="7" style="border: none;"></td></tr>
+                <tr>
+                    <td colspan="7" style="border: 1px solid #94A3B8; background-color: #FFFFFF; padding: 10px;">
+                        <table width="100%" border="0" cellpadding="4" cellspacing="0" style="font-size: 9pt; font-family: 'Malgun Gothic';">
+                            <tr>
+                                <td colspan="2" style="font-weight: bold; color: #DC2626; padding-bottom: 6px;">
+                                    메모 ※ 물량 증가 시 일정 변동성이 있음
+                                </td>
+                            </tr>
+                            <tr>
+                                <td style="width: 50%; vertical-align: top; color: #334155; line-height: 1.6;">
+                                    > 컨베이어 세척 <span style="color: #DC2626; font-weight: bold;">매주</span> 진행(구동부 오일, 구리스 매주 점검)<br>
+                                    > 폐왁스 평균 <span style="color: #DC2626; font-weight: bold;">매주</span> 2~3통 반출<br>
+                                    > 하부 수조 세정수 <span style="color: #DC2626; font-weight: bold;">2주</span>마다 교체<br>
+                                    > 급기 롤필터 <span style="color: #DC2626; font-weight: bold;">2주</span> 점검 및 조치(상시확인)
+                                </td>
+                                <td style="width: 50%; vertical-align: top; color: #334155; line-height: 1.6;">
+                                    > 지관필터 <span style="color: #DC2626; font-weight: bold;">매월</span> 1회 세척<br>
+                                    > 에어 컴프레셔 <span style="color: #DC2626; font-weight: bold;">매월</span> 교체<br>
+                                    > 컨베이어 리턴부 체인텐션 <span style="color: #DC2626; font-weight: bold;">매월</span> 점검<br>
+                                    > 배기덕트 프리필터 및 간지 <span style="color: #DC2626; font-weight: bold;">매월</span> 교체(상시 확인)
+                                </td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+            `;
+
+            tableHTML += `</tbody></table></body></html>`;
+
+            const blob = new Blob([tableHTML], { type: 'application/vnd.ms-excel;charset=utf-8;' });
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.download = `${title}.xls`;
+            link.click();
+        };
+
+        window.exportToExcel = function() {
+            const store = getInventoryForMonth(window.activeInvSubTab, window.invYear, window.invMonth);
+            const title = `월말_${window.activeInvSubTab === 'maint' ? '보전 자재' : '방청 보호구'} 재고현황_${window.invYear}년${window.invMonth}월`;
+            
+            let tableHTML = `
+                <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+                <head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"></head>
+                <body>
+                <table border="1" cellpadding="3" cellspacing="0" style="border-collapse: collapse; font-family: 'Malgun Gothic', sans-serif; text-align: center;">
+                    <thead>
+                        <tr>
+                            <th colspan="10" style="font-size: 16pt; font-weight: bold; padding: 15px; text-align: left; border: none;">${title}</th>
+                        </tr>
+                        <tr style="background-color: #1E293B; color: #FFFFFF; font-weight: bold;">
+                            <th style="padding: 10px; border: 1px solid #000000;">No.</th>
+                            <th style="padding: 10px; border: 1px solid #000000;">품목명</th>
+                            <th style="padding: 10px; border: 1px solid #000000;">규격</th>
+                            <th style="padding: 10px; border: 1px solid #000000;">단위</th>
+                            <th style="padding: 10px; border: 1px solid #000000;">적정재고</th>
+                            <th style="padding: 10px; border: 1px solid #000000;">전월 이월</th>
+                            <th style="padding: 10px; border: 1px solid #000000;">입고일 및 수량</th>
+                            <th style="padding: 10px; border: 1px solid #000000;">사용량</th>
+                            <th style="padding: 10px; border: 1px solid #000000;">현재고</th>
+                            <th style="padding: 10px; border: 1px solid #000000;">상태</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+
+            store.forEach((item, i) => {
+                const current = item.carryover + item.inQty - item.outQty;
+                const isShort = current < item.proper;
+                const inDisplay = item.inQty > 0 ? (item.inDate ? `${item.inDate} (${item.inQty})` : item.inQty) : '-';
+                
+                tableHTML += `
+                    <tr>
+                        <td style="border: 1px solid #000000;">${i + 1}</td>
+                        <td style="text-align: left; border: 1px solid #000000;">${item.name}</td>
+                        <td style="text-align: left; border: 1px solid #000000;">${item.spec}</td>
+                        <td style="border: 1px solid #000000;">${item.unit}</td>
+                        <td style="text-align: right; border: 1px solid #000000;">${item.proper}</td>
+                        <td style="text-align: right; border: 1px solid #000000;">${item.carryover}</td>
+                        <td style="text-align: right; border: 1px solid #000000; color: #166534;">${inDisplay}</td>
+                        <td style="text-align: right; border: 1px solid #000000; color: #991b1b;">${item.outQty > 0 ? item.outQty : '-'}</td>
+                        <td style="text-align: right; border: 1px solid #000000; font-weight: bold; background-color: #E0F2FE;">${current}</td>
+                        <td style="border: 1px solid #000000; font-weight: bold; ${isShort ? 'color: #991b1b; background-color: #FEE2E2;' : 'color: #334155;'}">${isShort ? '부족' : '정상'}</td>
+                    </tr>
+                `;
+            });
+
+            tableHTML += `</tbody></table></body></html>`;
+
+            const blob = new Blob([tableHTML], { type: 'application/vnd.ms-excel;charset=utf-8;' });
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.download = `${title}.xls`;
+            link.click();
+        };
+    </script>
+</body>
+</html>
